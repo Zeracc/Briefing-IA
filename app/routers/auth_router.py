@@ -12,7 +12,7 @@ class SignRequest(BaseModel):
     full_name: str | None = None
 
 
-@router.post("/signup")
+@router.post("/signup") 
 async def criar_conta(sign: SignRequest):
     """Cria uma nova conta no Supabase.
 
