@@ -1,7 +1,17 @@
 import os
+from dotenv import load_dotenv
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# carrega variáveis do .env (se existir)
+load_dotenv()
+
+_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not _OPENAI_API_KEY:
+    raise RuntimeError(
+        "OPENAI_API_KEY não definido. Defina a variável de ambiente OPENAI_API_KEY ou adicione-a ao arquivo .env"
+    )
+
+client = OpenAI(api_key=_OPENAI_API_KEY)
 
 def gerar_recomendacoes(transcricao: str):
     """
