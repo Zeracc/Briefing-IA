@@ -84,7 +84,26 @@ async def criar_conta(sign: SignRequest):
         # tenta criar/atualizar um profile no servidor (idempotente, não bloqueia o signup se falhar)
         try:
             if user_id:
+                # tenta obter o plan_id do plano básico (slug = 'basic') para atribuir ao novo usuário
+                default_plan_id = None
+                try:
+                    plan_resp = supabase.table("plans").select("id").eq("slug", "basic").maybe_single().execute()
+                    plan_data = None
+                    if isinstance(plan_resp, dict):
+                        plan_data = plan_resp.get("data")
+                    else:
+                        plan_data = getattr(plan_resp, "data", None)
+                    if plan_data:
+                        if isinstance(plan_data, dict):
+                            default_plan_id = plan_data.get("id")
+                        else:
+                            default_plan_id = getattr(plan_data, "id", None)
+                except Exception as e:
+                    print("Failed to fetch default plan id (non-fatal):", repr(e))
+
                 profile_payload = {"id": user_id, "username": None, "full_name": sign.full_name}
+                if default_plan_id:
+                    profile_payload["plan_id"] = default_plan_id
                 # usar upsert para ser idempotente (se já existir, atualiza; senão, insere)
                 try:
                     res = supabase.table("profiles").upsert(profile_payload).execute()
