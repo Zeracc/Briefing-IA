@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.services.supabase_client import supabase
+from app.services.dependencies import get_supabase_user
 from app.services.auth import get_current_user
 from app.services.ai_services import gerar_recomendacoes
 
@@ -7,7 +7,9 @@ router = APIRouter(prefix="/recommendations")
 
 
 @router.post("/generate")
-def generate(data: dict, user=Depends(get_current_user)):
+def generate(data: dict, 
+             user=Depends(get_current_user),
+             supabase=Depends(get_supabase_user)):
     """Gera recomendações a partir da transcrição do `video_id`.
 
     Body esperado: { "video_id": "..." }

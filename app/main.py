@@ -2,16 +2,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth_router, login_router, videos_router, recomendations_router
 from app.routers.upload import router as upload_router
+from dotenv import load_dotenv  
 
+
+load_dotenv()  # carrega .env
 app = FastAPI(title="Backend Supabase + FFmpeg")
 
 # Permitir o front (Vite) acessar o backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Inclui as rotas
 app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
