@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends
-from app.services.supabase_client import supabase
+from app.services.dependencies import get_supabase_user
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/videos")
 
 @router.post("/")
-def create_video(data: dict, user=Depends(get_current_user)):
+def create_video(
+    data: dict, 
+    user=Depends(get_current_user),
+    supabase=Depends(get_supabase_user),
+):
     payload = {
         "user_id": user.id,
         "title": data["title"],
@@ -17,7 +21,10 @@ def create_video(data: dict, user=Depends(get_current_user)):
     return {"status": "ok", "video": response.data}
 
 @router.get("/")
-def list_my_videos(user=Depends(get_current_user)):
+def list_my_videos(
+    user=Depends(get_current_user),
+    supabase=Depends(get_supabase_user)
+    ):
     return (
         supabase.table("videos")
         .select("*")
@@ -27,7 +34,10 @@ def list_my_videos(user=Depends(get_current_user)):
     )
 
 @router.get("/{video_id}")
-def get_video(video_id: str, user=Depends(get_current_user)):
+def get_video(
+    video_id: str, 
+    user=Depends(get_current_user),
+    supabase=Depends(get_supabase_user)):
     return (
         supabase.table("videos")
         .select("*")
