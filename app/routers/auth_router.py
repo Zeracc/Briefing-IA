@@ -14,9 +14,6 @@ class SignupSchema(BaseModel):
     full_name: str | None = None
 
 
-# =====================
-# SIGNUP
-# =====================
 @router.post("/signup")
 def signup(data: SignupSchema):
     supabase = create_client(
@@ -24,13 +21,15 @@ def signup(data: SignupSchema):
         os.getenv("SUPABASE_ANON_KEY")
     )
 
-    try:
-        result = supabase.auth.sign_up({
-            "email": data.email,
-            "password": data.password,
-        })
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    result = supabase.auth.sign_up({
+        "email": data.email,
+        "password": data.password,
+        "options": {
+            "data": {
+                "full_name": data.full_name
+            }
+        }
+    })
 
     if not result.user:
         raise HTTPException(status_code=400, detail="Erro ao criar usuário")
