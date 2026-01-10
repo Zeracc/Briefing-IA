@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
-from app.services.supabase_client import supabase
+from app.services.dependencies import get_supabase_user
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/transcriptions")
 
 @router.post("/")
-def create_transcription(data: dict, user=Depends(get_current_user)):
+def create_transcription(data: dict, user=Depends(get_current_user), supabase=Depends(get_supabase_user)):
     return (
         supabase.table("transcriptions")
         .insert(data)
@@ -14,7 +14,7 @@ def create_transcription(data: dict, user=Depends(get_current_user)):
     )
 
 @router.get("/{video_id}")
-def get_transcription(video_id: str, user=Depends(get_current_user)):
+def get_transcription(video_id: str, user=Depends(get_current_user), supabase=Depends(get_supabase_user)):
     return (
         supabase.table("transcriptions")
         .select("*")
