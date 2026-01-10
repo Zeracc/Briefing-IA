@@ -1,17 +1,53 @@
 from fastapi import APIRouter, Depends
-from app.services.supabase_client import supabase
-from app.services.auth import get_current_user
+from app.services.dependencies import get_supabase_user
 
-router = APIRouter(prefix="/plans")
+router = APIRouter(prefix="/plans", tags=["Plans"])
 
+# =====================
+# LIST PLANS (PUBLIC)
+# =====================
 @router.get("/")
-def list_plans():
-    return supabase.table("plans").select("*").execute().data
+def list_plans(
+    supabase=Depends(get_supabase_user),
+):
+    return (
+        supabase
+        .table("plans")
+        .select("*")
+        .execute()
+        .data
+    )
 
+# =====================
+# CHANGE PLAN (RLS SAFE)
+# =====================
 @router.post("/change")
-def change_plan(data: dict, user=Depends(get_current_user)):
-    plan_id = data["plan_id"]
+def change_plan(
+    data: dict,
+    supabase=Depends(get_supabase_user),
+):
+    response = (
+        supabase
+        .table("profiles")
+        .update({"plan_id": data["plan_id"]})
+        .execute()
+    )
 
-    supabase.table("profiles").update({"plan_id": plan_id}).eq("id", user.id).execute()
+    return {
+        "status": "ok",
+        "updated": response.data
+    }
 
-    return {"status": "ok", "message": "Plano atualizado"}
+
+@router.post("/plans/upgrade")
+def upgrade_plan(
+    data: dict,
+    supabase=Depends(get_supabase_user)
+):
+    supabase.table("profiles") \
+        .update({"plan_id": data["plan_id"]}) \
+        .execute()
+
+    return {"status": "ok"}
+
+

@@ -1,7 +1,9 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 import shutil
 import uuid
 import os
+from app.services.dependencies import get_supabase_user
+
 
 router = APIRouter()
 
@@ -11,7 +13,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/files/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    
+    file: UploadFile = File(...),
+    supabase=Depends(get_supabase_user),
+    ):
+    
+    
     try:
         file_id = str(uuid.uuid4())
         extension = file.filename.split(".")[-1]

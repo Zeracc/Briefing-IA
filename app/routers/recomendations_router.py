@@ -1,57 +1,73 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.services.supabase_client import supabase
+from app.services.dependencies import get_supabase_user
 from app.services.auth import get_current_user
+from app.services.permission import require_plan
 from app.services.ai_services import gerar_recomendacoes
 
-router = APIRouter(prefix="/recommendations")
+router = APIRouter(prefix="/recommendations", tags=["Recommendations"])
 
 
-@router.post("/generate")
-def generate(data: dict, user=Depends(get_current_user)):
-    """Gera recomendações a partir da transcrição do `video_id`.
-
-    Body esperado: { "video_id": "..." }
-    """
+@router.post(
+    "/generate",
+    dependencies=[Depends(require_plan(["medium_ia", "master_ia"]))]
+)
+def generate(
+    data: dict,
+    user=Depends(get_current_user),
+    supabase=Depends(get_supabase_user),
+):
+    # 1️⃣ Valida payload
     video_id = data.get("video_id")
     if not video_id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing 'video_id' in body")
-
-    # 1. Busca transcrição
-    try:
-        # use maybe_single() to avoid exception when 0 rows are returned
-        query = (
-            supabase.table("transcriptions")
-            .select("*")
-            .eq("video_id", video_id)
-            .maybe_single()
-            .execute()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing 'video_id' in body"
         )
-        t = getattr(query, "data", None)
-    except Exception as e:
-        print("DB query error:", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error querying transcriptions")
 
-    if not t or not isinstance(t, dict) or "content" not in t:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Transcription not found for video_id {video_id}")
+    # 2️⃣ Busca transcrição DO USUÁRIO
+    transcription = (
+        supabase
+        .table("transcriptions")
+        .select("content")
+        .eq("video_id", video_id)
+        .eq("user_id", user.id)
+        .maybe_single()
+        .execute()
+        .data
+    )
 
-    # 2. Envia para IA
+    if not transcription or "content" not in transcription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transcription not found for this video"
+        )
+
+    # 3️⃣ Chama IA
     try:
-        resultado = gerar_recomendacoes(t["content"])
+        resultado = gerar_recomendacoes(transcription["content"])
     except Exception as e:
-        print("AI service error:", e)
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"AI service error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI service error: {str(e)}"
+        )
 
     if not isinstance(resultado, list):
-        print("Invalid AI response format:", resultado)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid recommendations format returned by AI")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid AI response format"
+        )
 
-    # 3. Salva no banco
-    try:
-        supabase.table("recommendations").insert([
-            {**item, "video_id": video_id} for item in resultado
-        ]).execute()
-    except Exception as e:
-        print("DB insert error:", e)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error inserting recommendations into database")
+    # 4️⃣ Salva recomendações vinculadas ao usuário
+    supabase.table("recommendations").insert([
+        {
+            **item,
+            "video_id": video_id,
+            "user_id": user.id
+        }
+        for item in resultado
+    ]).execute()
 
-    return {"status": "ok", "recommendations": resultado}
+    return {
+        "status": "ok",
+        "recommendations": resultado
+    }
