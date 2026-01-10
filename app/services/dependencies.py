@@ -1,20 +1,20 @@
-import os
+from fastapi import Header, HTTPException
 from supabase import create_client
-from fastapi import Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
 
-security = HTTPBearer()
+def get_supabase_user(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token inválido")
 
-def get_supabase_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+    token = authorization.replace("Bearer ", "")
+
     return create_client(
         os.getenv("SUPABASE_URL"),
         os.getenv("SUPABASE_ANON_KEY"),
         options={
             "global": {
                 "headers": {
-                    "Authorization": f"Bearer {credentials.credentials}"
+                    "Authorization": f"Bearer {token}"
                 }
             }
         }
