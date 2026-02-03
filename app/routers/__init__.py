@@ -8,6 +8,7 @@ from . import (
     auth_router,
     login_router,
     videos_router,
+    projects_router,
     plan_router,
     profile_router,
     recomendations_router,
@@ -18,6 +19,7 @@ from . import (
 auth = auth_router
 login = login_router
 videos = videos_router
+projects = projects_router
 plan = plan_router
 profile = profile_router
 recomendations = recomendations_router
@@ -27,6 +29,7 @@ __all__ = [
     "auth_router",
     "login_router",
     "videos_router",
+    "projects_router",
     "plan_router",
     "profile_router",
     "recomendations_router",
@@ -34,6 +37,7 @@ __all__ = [
     "auth",
     "login",
     "videos",
+    "projects",
     "plan",
     "profile",
     "recomendations",
