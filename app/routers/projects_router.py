@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.services.supabase_client import get_supabase_client
-from app.services.auth import get_current_user, get_access_token
+from app.services.auth import get_current_user, get_access_token, get_user_id
 
 router = APIRouter(prefix="/projects")
+
 
 def _raise_for_supabase_error(exc: Exception) -> None:
     message = str(exc)
@@ -21,10 +22,13 @@ def _raise_for_supabase_error(exc: Exception) -> None:
 def list_projects(user=Depends(get_current_user), token=Depends(get_access_token)):
     try:
         client = get_supabase_client(token)
+        user_id = get_user_id(user)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token invalido")
         return (
             client.table("projects")
             .select("*")
-            .eq("user_id", user.id)
+            .eq("user_id", user_id)
             .execute()
             .data
         )
@@ -37,11 +41,14 @@ def list_projects(user=Depends(get_current_user), token=Depends(get_access_token
 def get_project(project_id: str, user=Depends(get_current_user), token=Depends(get_access_token)):
     try:
         client = get_supabase_client(token)
+        user_id = get_user_id(user)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token invalido")
         return (
             client.table("projects")
             .select("*")
             .eq("id", project_id)
-            .eq("user_id", user.id)
+            .eq("user_id", user_id)
             .single()
             .execute()
             .data
@@ -55,8 +62,11 @@ def get_project(project_id: str, user=Depends(get_current_user), token=Depends(g
 def create_project(payload: dict, user=Depends(get_current_user), token=Depends(get_access_token)):
     try:
         client = get_supabase_client(token)
+        user_id = get_user_id(user)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token invalido")
         data = dict(payload)
-        data["user_id"] = user.id
+        data["user_id"] = user_id
         response = client.table("projects").insert(data).execute()
         return {"status": "ok", "project": response.data}
     except Exception as exc:

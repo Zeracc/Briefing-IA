@@ -5,8 +5,8 @@ import uuid
 import os
 from typing import Optional
 
-# Imports dos seus serviços
-from app.services.auth import get_current_user, get_access_token
+# Imports dos seus serviÃ§os
+from app.services.auth import get_current_user, get_access_token, get_user_id
 from app.services.orchestrator import process_video_pipeline
 from app.services.supabase_client import get_supabase_client
 
@@ -23,36 +23,40 @@ def _validate_uuid(value: str, field_name: str) -> str:
     except Exception:
         raise HTTPException(
             status_code=400,
-            detail=f"{field_name} inválido (deve ser UUID)",
+            detail=f"{field_name} invÃ¡lido (deve ser UUID)",
         )
 
 
 @router.post("/files/upload")
 async def upload_file(
-    # Permite rodar o processo sem travar o usuário
+    # Permite rodar o processo sem travar o usuÃ¡rio
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     project_id: Optional[str] = Form(None),
-    user=Depends(get_current_user),    # Garante que temos o usuário logado
+    user=Depends(get_current_user),    # Garante que temos o usuÃ¡rio logado
     token=Depends(get_access_token),
 ):
-    # Validação: verificar se arquivo foi enviado
+    # ValidaÃ§Ã£o: verificar se arquivo foi enviado
     if not file or not file.filename:
         raise HTTPException(
-            status_code=400, 
-            detail="Nenhum arquivo foi fornecido. Envie um arquivo válido no campo 'file'."
+            status_code=400,
+            detail="Nenhum arquivo foi fornecido. Envie um arquivo vÃ¡lido no campo 'file'."
         )
-    
+
     try:
         client = get_supabase_client(token)
+        user_id = get_user_id(user)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token invalido")
 
         # Se project_id foi fornecido, valida antes de salvar o arquivo
         if project_id:
             _validate_uuid(project_id, "project_id")
             project_resp = (
                 client.table("projects")
-                .select("id")
+                .select("id, user_id")
                 .eq("id", project_id)
+                .eq("user_id", user_id)
                 .maybe_single()
                 .execute()
             )
@@ -62,9 +66,9 @@ async def upload_file(
                 else getattr(project_resp, "data", None)
             )
             if not project_data:
-                raise HTTPException(status_code=404, detail="Projeto não encontrado")
+                raise HTTPException(status_code=404, detail="Projeto nÃ£o encontrado")
 
-        # 1. Gerar nome único e definir caminho
+        # 1. Gerar nome Ãºnico e definir caminho
         file_id = str(uuid.uuid4())
         extension = file.filename.split(".")[-1]
         filename = f"{file_id}.{extension}"
@@ -78,43 +82,43 @@ async def upload_file(
         # IMPORTANTE: A tabela 'videos' precisa existir e ter as colunas user_id e project_id (opcional)
         data = {
             "id": file_id,
-            "user_id": user.id,  # Pega o ID do usuário autenticado
+            "user_id": user_id,  # ID do usuÃ¡rio autenticado (JWT sub)
             "title": file.filename,
             "status": "queued",
             "original_url": file_path
         }
-        
+
         # Se project_id foi fornecido, adiciona ao registro
         if project_id:
             data["project_id"] = project_id
 
-        # Executa o insert no Supabase (com JWT do usuário)
+        # Executa o insert no Supabase (com JWT do usuÃ¡rio)
         client.table("videos").insert(data).execute()
 
         # 4. Disparar o Orquestrador em Background
         # O FastAPI vai responder o return abaixo IMEDIATAMENTE,
-        # e depois vai rodar essa função process_video_pipeline "nos bastidores"
-        background_tasks.add_task(process_video_pipeline, file_id, file_path)
+        # e depois vai rodar essa funÃ§Ã£o process_video_pipeline "nos bastidores"
+        background_tasks.add_task(process_video_pipeline, file_id, file_path, token, user_id)
 
         return {
             "id": file_id,
             "filename": filename,
             "path": file_path,
             "status": "processing_started",
-            "message": "Upload recebido! O vídeo está sendo processado.",
+            "message": "Upload recebido! O vÃ­deo estÃ¡ sendo processado.",
             "project_id": project_id  # Retorna se foi fornecido
         }
 
     except HTTPException:
-        # Re-raise HTTPExceptions (como o erro de validação 400)
+        # Re-raise HTTPExceptions (como o erro de validaÃ§Ã£o 400)
         raise
     except Exception as e:
         print(f"Erro interno no upload: {e}")  # Ajuda a debugar no terminal
         message = str(e)
         if "Project not found" in message or "P0001" in message:
-            raise HTTPException(status_code=404, detail="Projeto não encontrado")
+            raise HTTPException(status_code=404, detail="Projeto nÃ£o encontrado")
         if "42501" in message or "row-level security" in message or "permission" in message:
-            raise HTTPException(status_code=403, detail="RLS bloqueou a operação em videos")
+            raise HTTPException(status_code=403, detail="RLS bloqueou a operaÃ§Ã£o em videos")
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao processar o upload. Tente novamente mais tarde.",

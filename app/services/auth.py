@@ -2,14 +2,19 @@ from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.services.supabase_client import supabase
 
-token_auth = HTTPBearer()
+token_auth = HTTPBearer(auto_error=False)
 
 
-def get_access_token(credentials: HTTPAuthorizationCredentials = Depends(token_auth)):
+def get_access_token(credentials: HTTPAuthorizationCredentials | None = Depends(token_auth)):
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token ausente")
     return credentials.credentials
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(token_auth)):
+def get_current_user(credentials: HTTPAuthorizationCredentials | None = Depends(token_auth)):
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token ausente")
+
     token = credentials.credentials
 
     # valida token no Supabase
@@ -37,3 +42,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(token_a
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token invalido")
 
     return user
+
+
+def get_user_id(user) -> str | None:
+    if isinstance(user, dict):
+        return user.get("id") or user.get("sub")
+    return getattr(user, "id", None) or getattr(user, "sub", None)
