@@ -1,114 +1,141 @@
-import json  # <--- Garanta que isso está importado no topo
+import base64
+import json
 import os
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# carrega variáveis do .env (se existir)
 load_dotenv()
 
-_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not _OPENAI_API_KEY:
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
     raise RuntimeError(
-        "OPENAI_API_KEY não definido. Defina a variável de ambiente OPENAI_API_KEY ou adicione-a ao arquivo .env"
+        "OPENAI_API_KEY nao definido. Configure OPENAI_API_KEY no ambiente."
     )
 
-client = OpenAI(api_key=_OPENAI_API_KEY)
+RECOMMENDATION_MODEL = os.getenv("OPENAI_RECOMMENDATION_MODEL", "gpt-4o-mini")
+MAX_VISUAL_FRAMES = max(0, int(os.getenv("OPENAI_MAX_VISUAL_FRAMES", "6")))
+MAX_VISUAL_FRAME_BYTES = max(
+    200_000,
+    int(os.getenv("OPENAI_MAX_VISUAL_FRAME_BYTES", str(2 * 1024 * 1024))),
+)
+VISUAL_IMAGE_DETAIL = os.getenv("OPENAI_VISUAL_IMAGE_DETAIL", "low")
 
-# ... (Seus imports e configurações do client OpenAI continuam iguais)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 def transcribe_audio(audio_path: str):
-    """
-    Usa o Whisper-1 para transcrever o áudio.
-    """
-    # Debug: Tamanho do arquivo
     tamanho_mb = os.path.getsize(audio_path) / (1024 * 1024)
-    print(f"📡 [IA] Iniciando upload para OpenAI... ({tamanho_mb:.2f} MB)")
-    print("⏳ [IA] Aguarde, isso depende da sua internet...")
+    print(f"[IA] transcription.start size_mb={tamanho_mb:.2f}")
 
-    try:
-        with open(audio_path, "rb") as audio_file:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="verbose_json"
-            )
-        print("✅ [IA] Resposta recebida da OpenAI!")
-        return transcript
-
-    except Exception as e:
-        print(f"❌ [IA] Erro na conexão com OpenAI: {e}")
-        raise e
-
-# ... (Sua função gerar_recomendacoes continua igual)
+    with open(audio_path, "rb") as audio_file:
+        transcript = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file,
+            response_format="verbose_json",
+        )
+    print("[IA] transcription.done")
+    return transcript
 
 
-def gerar_recomendacoes(transcricao: str):
-    """
-    Recebe o texto da transcrição e retorna uma lista de recomendações.
-    """
+def _image_to_data_url(path: str) -> str | None:
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    if not raw:
+        return None
+    if len(raw) > MAX_VISUAL_FRAME_BYTES:
+        print(
+            "[IA] frame.skip_too_large "
+            f"path={path} bytes={len(raw)} max={MAX_VISUAL_FRAME_BYTES}"
+        )
+        return None
+    extension = os.path.splitext(path)[1].lower()
+    mime = "image/png" if extension == ".png" else "image/jpeg"
+    encoded = base64.b64encode(raw).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
 
-    # ... (seu prompt continua igual) ...
+
+def _build_visual_inputs(frame_paths: list[str] | None) -> list[dict]:
+    if not frame_paths:
+        return []
+    visual_inputs: list[dict] = []
+    for path in frame_paths[:MAX_VISUAL_FRAMES]:
+        data_url = _image_to_data_url(path)
+        if not data_url:
+            continue
+        visual_inputs.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": data_url,
+                    "detail": VISUAL_IMAGE_DETAIL,
+                },
+            }
+        )
+    return visual_inputs
+
+
+def gerar_recomendacoes(transcricao: str, frame_paths: list[str] | None = None):
     prompt = f"""
 TAREFA PRINCIPAL:
-Com base na transcrição e no vídeo enviado, gere um roteiro completo e estruturado de edição. Você deve produzir ações de edição ultra claras, com timestamps exatos, B-roll sugerido, cortes, trilhas sonoras, recortes e marcadores. Não invente conteúdo que não exista no vídeo.
+Com base na transcricao e nos snapshots do video, gere um roteiro completo e estruturado de edicao.
+As instrucoes devem ser objetivas, com timestamps, cortes, B-roll, trilha, recortes e marcadores.
+Nao invente conteudo que nao exista na transcricao ou nas imagens.
 
-Você é um Editor IA profissional, especializado em análise de vídeo. Sua tarefa é transformar a transcrição em um conjunto de instruções objetivas que possam ser executadas diretamente por um editor humano ou automático.
+CONTEXTO:
+- A transcricao vem do audio real do video.
+- Os snapshots sao frames extraidos em intervalos maiores para dar contexto visual.
 
-A transcrição é:
+TRANSCRICAO:
 ---
 {transcricao}
 ---
 
-RETORNO (FORMATO OBRIGATÓRIO):
-Retorne exclusivamente uma LISTA JSON onde cada item representa uma ação de edição do vídeo.
-
-Cada item deve seguir rigorosamente este formato:
-
+RETORNO OBRIGATORIO:
+Retorne exclusivamente um JSON array.
+Cada item:
 [
   {{
     "timestamp_seconds": 12.4,
-    "tag": "curto título da ação (ex: Inserir B-roll, Cortar pausa, Início do Hook...)",
-    "description": "descrição completa da ação, incluindo: identificação da parte (Hook, Intro, Desenvolvimento, Conclusão); ação detalhada de edição; timestamps de entrada e saída; sugestões de B-roll (até 3 links); sugestão de música (se aplicável); emoção detectada (se aplicável); instruções de thumbnail quando aplicável; instruções de recorte para redes sociais (se aplicável).",
+    "tag": "titulo curto da acao",
+    "description": "instrucao completa e executavel",
     "confidence": 0.85
   }}
 ]
 
-TODOS os comandos de edição devem aparecer como itens separados na lista, em ordem cronológica.
-
-NÃO INCLUA:
-- explicações
-- texto fora do JSON
-- comentários
-- formatação markdown
-
-Somente retorne o JSON puro.
+Sem markdown. Sem texto fora do JSON.
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",  # Confirmando o modelo correto
-        messages=[{"role": "user", "content": prompt}]
+    content: list[dict] = [{"type": "text", "text": prompt}]
+    visual_inputs = _build_visual_inputs(frame_paths)
+    content.extend(visual_inputs)
+
+    print(
+        "[IA] recommendations.start "
+        f"transcription_chars={len(transcricao or '')} snapshots={len(visual_inputs)} model={RECOMMENDATION_MODEL}"
     )
 
-    # Conteúdo retornado pelo modelo
-    content = response.choices[0].message.content
+    response = client.chat.completions.create(
+        model=RECOMMENDATION_MODEL,
+        messages=[{"role": "user", "content": content}],
+    )
 
-    # --- CORREÇÃO: LIMPEZA DO MARKDOWN ---
-    # A IA às vezes responde com ```json [dados] ```. Vamos remover isso.
-    if "```json" in content:
-        content = content.replace("```json", "").replace("```", "")
-    elif "```" in content:
-        content = content.replace("```", "")
+    raw_content = response.choices[0].message.content or ""
+    normalized = raw_content.strip()
+    if normalized.startswith("```json"):
+        normalized = normalized.replace("```json", "", 1).strip()
+    if normalized.startswith("```"):
+        normalized = normalized.replace("```", "", 1).strip()
+    if normalized.endswith("```"):
+        normalized = normalized[:-3].strip()
 
-    content = content.strip()  # Remove espaços em branco do começo e fim
-    # -------------------------------------
-
-    # Converte JSON string → Python
-    import json
     try:
-        parsed = json.loads(content)
-        return parsed
-    except Exception as e:
-        print("❌ Erro ao converter resposta da IA em JSON:")
-        print(content)  # Mostra o que chegou para debug
-        raise e
+        parsed = json.loads(normalized)
+    except Exception as exc:
+        print("[IA] recommendations.parse_error", normalized)
+        raise RuntimeError(f"Falha ao converter resposta da IA para JSON: {exc}") from exc
+
+    print("[IA] recommendations.done")
+    return parsed

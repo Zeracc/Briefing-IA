@@ -13,6 +13,7 @@ from . import (
     profile_router,
     recomendations_router,
     transcriptions_router,
+    storage_router,
 )
 
 # aliases sem sufixo para compatibilidade com importações antigas
@@ -24,6 +25,7 @@ plan = plan_router
 profile = profile_router
 recomendations = recomendations_router
 transcriptions = transcriptions_router
+storage = storage_router
 
 __all__ = [
     "auth_router",
@@ -34,6 +36,7 @@ __all__ = [
     "profile_router",
     "recomendations_router",
     "transcriptions_router",
+    "storage_router",
     "auth",
     "login",
     "videos",
@@ -42,4 +45,5 @@ __all__ = [
     "profile",
     "recomendations",
     "transcriptions",
+    "storage",
 ]

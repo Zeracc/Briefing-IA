@@ -35,6 +35,12 @@ def get_supabase_client(access_token: str | None = None):
     return create_client(SUPABASE_URL, SUPABASE_ANON_KEY, options)
 
 
+def get_service_role_client():
+    if not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY n\u00e3o definido (env ou .env).")
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+
 def insert_as_user(table: str, payload: dict | list, jwt: str, timeout: int = 30) -> dict:
     if not jwt:
         raise ValueError("JWT Ã© obrigatÃ³rio para insert_as_user.")
