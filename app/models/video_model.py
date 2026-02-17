@@ -31,4 +31,5 @@ class VideoStatusResponse(BaseModel):
     project_id: str | None = None
     storage_path: str | None = None
     status: VideoStatus
+    signed_url: str | None = None
     error_detail: str | None = None

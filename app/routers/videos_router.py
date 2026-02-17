@@ -336,11 +336,34 @@ def get_video(video_id: str, user=Depends(get_current_user), token=Depends(get_a
             if raw_status in {"queued", "uploaded", "processing", "error", "completed"}
             else "error"
         )
+        signed_url = None
+        storage_path = video.get("storage_path")
+        if storage_path:
+            try:
+                # Gera URL assinada valada por 1 hora (3600 segundos)
+                # O metodo create_signed_url retorna um dict com a chave "signedURL"
+                # ou a string diretamente dependendo da versao.
+                # Ajuste conforme a lib supabase-py em uso.
+                res_url = client.storage.from_(VIDEO_BUCKET).create_signed_url(storage_path, 3600)
+                if isinstance(res_url, dict):
+                     signed_url = res_url.get("signedURL")
+                elif isinstance(res_url, str):
+                     signed_url = res_url
+                else:
+                     signed_url = getattr(res_url, "signedURL", None)
+                     
+                # Fallback: Se create_signed_url falhar ou nao retornar nada, 
+                # e se o bucket for publico, poderia tentar get_public_url.
+                # Mas assumindo bucket privado por seguranca.
+            except Exception as e_url:
+                print(f"[videos] signed_url error: {e_url}")
+
         payload = VideoStatusResponse(
             video_id=str(video.get("id")),
             project_id=video.get("project_id"),
-            storage_path=video.get("storage_path"),
+            storage_path=storage_path,
             status=normalized_status,
+            signed_url=signed_url,
             error_detail=_extract_error_detail(video),
         )
         print(
