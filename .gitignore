@@ -31,3 +31,7 @@ Thumbs.db
 # Build
 dist/
 build/git
+
+# Json
+*_response.json
+*_debug.json
