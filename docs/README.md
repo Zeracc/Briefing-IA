@@ -1,44 +1,138 @@
-# Backend - Storage e processamento
+# 🚀 Briefing IA
 
-## Fluxo recomendado (frontend -> storage -> backend)
-1. Frontend autentica via Supabase e obtem o JWT do usuario.
-2. Frontend faz upload direto no bucket `videos` com path `auth.uid()/...`.
-   Exemplo de path: `{user_id}/{video_id}.mp4`.
-3. Frontend cria o registro no backend:
-   `POST /api/videos/` com `title`, `storage_path` (path relativo ao bucket), `project_id` opcional e `status` inicial (`queued` ou `uploaded`).
-4. O backend persiste o registro e devolve **sempre**:
-   ```json
-   {
-     "video_id": "<uuid>",
-     "project_id": "<uuid|null>",
-     "storage_path": "<path>",
-     "status": "<queued|uploaded|processing|error>"
-   }
-   ```
-5. O backend enfileira o pipeline automaticamente apos a persistencia (sem chamada extra do frontend).
+Transforme qualquer vídeo em um **briefing profissional de edição**, automaticamente.
 
-## Endpoint de upload legado (deprecated)
-`POST /files/upload` continua funcionando, mas esta marcado como deprecated.
-Ele valida o JWT do usuario, envia o arquivo para o Storage com Service Role, persiste o registro e retorna o mesmo contrato de `POST /api/videos/`.
-Evite usar em producao.
+O sistema analisa áudio, imagens e contexto do vídeo para gerar **roteiros, cortes e sugestões criativas** — reduzindo drasticamente o tempo de produção de conteúdo.
 
-## Delete transacional (logico)
-`DELETE /api/videos/{video_id}`
-- Remove primeiro o arquivo do Storage e somente depois remove o registro e dependencias.
-- Se a remocao do Storage falhar, o registro nao e deletado.
+---
 
-## Storage health (dev only)
-`GET /api/storage/health`
-- Disponivel apenas em ambiente dev.
-- Use `APP_ENV=dev` ou `DEBUG=1` para habilitar.
+## 🎯 Problema
 
-## Variaveis de ambiente
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (necessaria para signed URL e download server-side)
-- `SUPABASE_STORAGE_BUCKET` (opcional, default: `videos`)
-- `UPLOAD_MAX_SIZE_MB` (opcional, default: 200)
+Criadores, editores e agências perdem tempo analisando vídeos manualmente para:
 
-## Endpoint de status
-`GET /api/videos/{video_id}`
-- Retorna status atualizado do processamento com `error_detail` quando houver falha.
+* definir estrutura
+* identificar pontos de corte
+* pensar em narrativa
+* gerar ideias de melhoria
+
+---
+
+## 💡 Solução
+
+O **Briefing IA** automatiza esse processo com um pipeline completo de IA:
+
+1. Upload de vídeo
+2. Extração de áudio com FFmpeg
+3. Transcrição automática (OpenAI / Whisper)
+4. Captura de frames (snapshots)
+5. Análise multimodal (texto + imagem)
+6. Geração de recomendações estruturadas
+
+---
+
+## 🧠 Saída gerada
+
+* Estrutura de roteiro (hook, intro, desenvolvimento, CTA)
+* Sugestões de cortes e ritmo
+* Ideias de B-roll e elementos visuais
+* Recomendações estratégicas de melhoria
+
+---
+
+## ⚙️ Stack
+
+* **Backend:** FastAPI
+* **Banco/Auth/Storage:** Supabase
+* **Processamento de vídeo:** FFmpeg
+* **IA:** OpenAI (transcrição + análise)
+* **Linguagem:** Python
+
+---
+
+## 🏗️ Arquitetura
+
+```bash
+app/
+├── routers/       # Endpoints da API
+├── services/      # Regras de negócio (IA, FFmpeg, Supabase)
+├── models/        # Schemas e validações
+├── core/          # Configurações e inicialização
+├── utils/         # Funções auxiliares
+```
+
+---
+
+## ⚡ Pipeline (visão técnica)
+
+```text
+Upload → Storage → FFmpeg → Transcription → Snapshots → IA → Recommendations → Persistência
+```
+
+* Processamento assíncrono
+* Integração com storage via signed URL
+* Separação por usuário (RLS)
+* Fallbacks para compatibilidade de schema
+
+---
+
+## ▶️ Como rodar localmente
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+A API estará disponível em:
+
+```
+http://127.0.0.1:8000/docs
+```
+
+---
+
+## 🔐 Variáveis de ambiente
+
+Crie um arquivo `.env`:
+
+```env
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
+```
+
+---
+
+## 📌 Diferenciais técnicos
+
+* Pipeline completo de vídeo + IA
+* Processamento assíncrono em background
+* Análise multimodal (imagem + texto)
+* Integração com storage externo (Supabase)
+* Arquitetura organizada em camadas
+* Sistema pronto para escalar para SaaS
+
+---
+
+## 🚧 Roadmap
+
+* [ ] WebSocket para status em tempo real
+* [ ] Export para Premiere / CapCut
+* [ ] Fila distribuída (Redis / Celery)
+* [ ] Dashboard analítico
+* [ ] Upload direto do frontend
+
+---
+
+## 📸 Preview (em breve)
+
+> Adicione aqui screenshots ou GIF do sistema rodando
+
+---
+
+## 👨‍💻 Autor
+
+Projeto desenvolvido como MVP de produto SaaS com foco em automação de criação de conteúdo.
