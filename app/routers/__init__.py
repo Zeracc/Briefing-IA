@@ -11,7 +11,7 @@ from . import (
     projects_router,
     plan_router,
     profile_router,
-    recomendations_router,
+    recommendations_router,
     transcriptions_router,
     storage_router,
 )
@@ -23,7 +23,7 @@ videos = videos_router
 projects = projects_router
 plan = plan_router
 profile = profile_router
-recomendations = recomendations_router
+recommendations = recommendations_router
 transcriptions = transcriptions_router
 storage = storage_router
 
@@ -34,7 +34,7 @@ __all__ = [
     "projects_router",
     "plan_router",
     "profile_router",
-    "recomendations_router",
+    "recommendations_router",
     "transcriptions_router",
     "storage_router",
     "auth",
@@ -43,7 +43,7 @@ __all__ = [
     "projects",
     "plan",
     "profile",
-    "recomendations",
+    "recommendations",
     "transcriptions",
     "storage",
 ]

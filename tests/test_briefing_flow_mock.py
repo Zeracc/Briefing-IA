@@ -67,10 +67,10 @@ class TestBriefingBackend(unittest.TestCase):
         self.assertEqual(result.signed_url, "https://signed.url/video.mp4")
         mock_storage.create_signed_url.assert_called_with("user-123/video.mp4", 3600)
 
-    @patch("app.routers.recomendations_router.get_supabase_client")
+    @patch("app.routers.recommendations_router.get_supabase_client")
     def test_get_recommendations_list(self, mock_get_client):
         # Setup
-        from app.routers.recomendations_router import get_recommendations_list
+        from app.routers.recommendations_router import get_recommendations_list
 
         mock_user = MagicMock()
         mock_token = "fake-token"

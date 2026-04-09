@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth_router, login_router, videos_router, recomendations_router, projects_router, storage_router
+from app.routers import auth_router, login_router, videos_router, recommendations_router, projects_router, storage_router
 from app.routers.upload import router as upload_router
 
 app = FastAPI(title="Backend Supabase + FFmpeg")
@@ -22,7 +22,7 @@ app.include_router(auth_router.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(videos_router.router, prefix="/api", tags=["Videos"])
 app.include_router(projects_router.router, prefix="/api", tags=["Projects"])
 app.include_router(login_router.router, prefix="/api", tags=["Login"])
-app.include_router(recomendations_router.router,
+app.include_router(recommendations_router.router,
                    prefix="/api", tags=["Recommendations"])
 app.include_router(upload_router)
 app.include_router(storage_router.router, prefix="/api", tags=["Storage"])
