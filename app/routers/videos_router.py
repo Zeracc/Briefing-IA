@@ -122,14 +122,13 @@ def _fetch_video_row(
     user_id: str,
 ):
     """
-    Alguns ambientes retornam erro 204/Missing response no maybe_single.
-    Faz fallback para select("*")+limit(1) quando isso ocorrer.
+    Busca um vídeo de forma compatível com schemas diferentes.
+    Evita selecionar colunas opcionais que podem não existir.
     """
-    preferred_select = "id, project_id, storage_path, status, error_detail, error_message, last_error"
     try:
         response = (
             client.table("videos")
-            .select(preferred_select)
+            .select("*")
             .eq("id", video_id)
             .eq("user_id", user_id)
             .maybe_single()
@@ -140,10 +139,12 @@ def _fetch_video_row(
         message = str(exc)
         if "Missing response" not in message and "Error 204" not in message:
             raise
+
         print(
             "[videos] status.fallback_query "
             f"video_id={video_id} user_id={user_id} reason={message}"
         )
+
         fallback_response = (
             client.table("videos")
             .select("*")
@@ -156,7 +157,6 @@ def _fetch_video_row(
         if isinstance(data, list):
             return data[0] if data else None
         return data
-
 
 def _create_response_from_row(video: dict) -> CreateVideoResponse:
     raw_status = str(video.get("status") or "").lower()

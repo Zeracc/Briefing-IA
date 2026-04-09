@@ -1,5 +1,33 @@
-.env
+# Python
 __pycache__/
-.vscode/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+.venv/
 venv/
-uploads/assets/frames/
+
+# Env
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Uploads e assets
+uploads/
+assets/frames/
+assets/snapshots/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/git

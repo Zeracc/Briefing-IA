@@ -6,3 +6,5 @@ pydantic
 openai
 python-multipart
 requests
+pillow
+moviepy
