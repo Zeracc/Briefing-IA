@@ -81,8 +81,9 @@ def gerar_recomendacoes(transcricao: str, frame_paths: list[str] | None = None):
     prompt = f"""
 TAREFA PRINCIPAL:
 Com base na transcricao e nos snapshots do video, gere um roteiro completo e estruturado de edicao.
-As instrucoes devem ser objetivas, com timestamps, cortes, B-roll, trilha, recortes e marcadores.
-Nao invente conteudo que nao exista na transcricao ou nas imagens.
+A intencao principal e criar um "briefing" rico e detalhado para a edicao de videos, melhorando significativamente a recomendacao de insercoes de "B-rolls" (imagens de cobertura) com base no contexto falado e visual.
+Em vez de um B-roll "seco" e generico, forneca recomendacoes criativas e hiperdescritivas que guiem o editor em relacao a atmosfera visual, tipo de cena e acoes (ex: "B-roll de um cafe quente soltando vapor", em vez de apenas "B-roll de cafe").
+Enriqueca o campo 'description' incluindo as sugestoes detalhadas do B-roll e a ambientacao de audio apropriada.
 
 CONTEXTO:
 - A transcricao vem do audio real do video.
@@ -94,13 +95,14 @@ TRANSCRICAO:
 ---
 
 RETORNO OBRIGATORIO:
-Retorne exclusivamente um JSON array.
-Cada item:
+Retorne exclusivamente um array JSON.
+Nao adicione chaves fora das estipuladas abaixo.
+Cada item deve ter a exata estrutura:
 [
   {{
     "timestamp_seconds": 12.4,
-    "tag": "titulo curto da acao",
-    "description": "instrucao completa e executavel",
+    "tag": "Corte/B-roll/Transicao/Efeito",
+    "description": "Instrucao executavel e MUITO detalhada, incluindo movimento de camera sugerido, elementos da cena para o B-roll, e sugestoes sonoras (SFX/Trilha) que valorizam a marcacao.",
     "confidence": 0.85
   }}
 ]

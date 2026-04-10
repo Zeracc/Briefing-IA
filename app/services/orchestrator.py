@@ -25,7 +25,7 @@ def _read_int_env(name: str, default: int) -> int:
         return default
 
 
-SNAPSHOT_INTERVAL_SECONDS = _read_int_env("VIDEO_SNAPSHOT_INTERVAL_SECONDS", 15)
+SNAPSHOT_INTERVAL_SECONDS = _read_int_env("VIDEO_SNAPSHOT_INTERVAL_SECONDS", 5)
 SNAPSHOT_MAX_FRAMES = _read_int_env("VIDEO_SNAPSHOT_MAX_FRAMES", 8)
 
 
@@ -241,41 +241,68 @@ def process_video_pipeline(
         except Exception as snapshot_exc:
             print(f"[videos] snapshots.error video_id={video_id} error={snapshot_exc}")
 
-        # 6. Gerar Recomendacoes (IA analisando transcricao + snapshots).
-        recomendacoes = gerar_recomendacoes(
-            transcription_data.text,
+        # 6. Gerar Recomendacoes Avançadas (Briefing Inteligente)
+        from app.services.briefing_engine_service import generate_video_briefing
+        print(f"[videos] briefing.start video_id={video_id}")
+        
+        # Formatar transcricao com timestamps para maior precisão da IA
+        formatted_transcription = ""
+        if hasattr(transcription_data, "segments") and transcription_data.segments:
+            for seg in transcription_data.segments:
+                start_sec = int(seg.start)
+                end_sec = int(seg.end)
+                start_fmt = f"{start_sec // 60:02d}:{start_sec % 60:02d}"
+                end_fmt = f"{end_sec // 60:02d}:{end_sec % 60:02d}"
+                formatted_transcription += f"[{start_fmt} - {end_fmt}] {seg.text.strip()}\n"
+        else:
+            formatted_transcription = getattr(transcription_data, "text", "")
+
+        briefing_result = generate_video_briefing(
+            transcricao=formatted_transcription,
             frame_paths=snapshot_paths,
         )
+        print(f"[videos] briefing.done_ia video_id={video_id}")
 
-        # 7. Salvar Recomendacoes (RLS como usuario)
-        if recomendacoes:
-            payload = []
-            for rec in recomendacoes:
-                payload.append(
-                    {
-                        "video_id": video_id,
-                        "timestamp_seconds": rec.get("timestamp_seconds"),
-                        "tag": rec.get("tag"),
-                        "description": rec.get("description"),
-                        "confidence": rec.get("confidence", 1.0),
-                    }
-                )
-            rec_result = insert_as_user("recommendations", payload, access_token)
+        # 7. Salvar Briefing consolidado (Nova Tabela)
+        briefing_payload = {
+            "video_id": video_id,
+            "content": briefing_result.model_dump()
+        }
+        b_result = insert_as_user("video_briefings", briefing_payload, access_token)
+        if b_result["ok"]:
+             print(f"[videos] briefing.persisted video_id={video_id}")
+        else:
+             print(f"[videos] briefing.persist_error video_id={video_id} status={b_result['status']}")
+             _update_video_status(client, video_id, "error", "Falha ao persistir briefing.")
+             return
+
+        # 7.1 Retrocompatibilidade: Extrair cortes e B-Rolls e salvar na tabela antiga (export Premiere/AE)
+        legacy_payload = []
+        for cut in briefing_result.cut_recommendations:
+            legacy_payload.append({
+                "video_id": video_id,
+                "timestamp_seconds": cut.start,
+                "tag": f"Corte ({cut.priority})",
+                "description": cut.reason,
+                "confidence": 1.0
+            })
+            
+        for broll in briefing_result.broll_recommendations:
+            legacy_payload.append({
+                "video_id": video_id,
+                "timestamp_seconds": broll.start,
+                "tag": "B-roll",
+                "description": f"Faixa {broll.time_range}: {broll.suggestion} (Motivo: {broll.reason})",
+                "confidence": 1.0
+            })
+            
+        if legacy_payload:
+            rec_result = insert_as_user("recommendations", legacy_payload, access_token)
             if rec_result["ok"]:
-                print(f"[videos] recommendations.persisted video_id={video_id}")
+                print(f"[videos] recommendations.persisted_legacy video_id={video_id}")
             else:
-                print(
-                    "[videos] recommendations.persist_error "
-                    f"video_id={video_id} status={rec_result['status']} body={rec_result['body']}"
-                )
-                _update_video_status(
-                    client,
-                    video_id,
-                    "error",
-                    "Falha ao persistir recomendacoes.",
-                )
-                return
-            print(f"[videos] recommendations.done video_id={video_id}")
+                print(f"[videos] recommendations.persist_error_legacy video_id={video_id} status={rec_result['status']} body={rec_result['body']}")
+                # não daremos abort se apenas o legacy falhar
 
         # 8. (Opcional) Extrair Frames para exibicao no front
         # extract_frames(local_video_path)

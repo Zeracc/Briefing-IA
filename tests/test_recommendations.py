@@ -19,9 +19,9 @@ app.dependency_overrides[get_current_user] = override_get_current_user
 app.dependency_overrides[get_access_token] = override_get_access_token
 
 @patch("app.routers.recommendations_router.get_supabase_client")
-@patch("app.routers.recommendations_router.gerar_recomendacoes")
+@patch("app.routers.recommendations_router.generate_video_briefing")
 @patch("app.routers.recommendations_router.insert_as_user")
-def test_generate_recommendations(mock_insert, mock_gerar_ai, mock_get_supabase):
+def test_generate_recommendations(mock_insert, mock_generate_video, mock_get_supabase):
     # Mock supabase to return a transcription
     mock_client = MagicMock()
     mock_get_supabase.return_value = mock_client
@@ -37,16 +37,38 @@ def test_generate_recommendations(mock_insert, mock_gerar_ai, mock_get_supabase)
     mock_query.execute.return_value = mock_resp
     
     # Mock AI Service simulate AI
-    mock_gerar_ai.return_value = [
-        {"timestamp_seconds": 10, "tag": "Corte", "description": "Remover silêncio"}
-    ]
+    from app.models.video_briefing_model import VideoBriefingResult, CutRecommendation, BRollRecommendation
     
-    # Mock DB insert
+    mock_result = VideoBriefingResult(
+        summary="Resumo",
+        video_goal="Objetivo",
+        target_audience="Devs",
+        tone_analysis="Técnico",
+        content_strengths=["Força"],
+        content_weaknesses=["Fraqueza"],
+        recommended_structure=[],
+        highlight_moments=[],
+        cut_recommendations=[
+            CutRecommendation(start=10.0, end=15.0, reason="Corte simples", priority="low")
+        ],
+        broll_recommendations=[
+            BRollRecommendation(time_range="0s", start=0.0, end=5.0, suggestion="Intro", reason="Abertura")
+        ],
+        caption_recommendations=[],
+        cta_recommendation="Inscreva",
+        title_suggestions=[],
+        thumbnail_suggestions=[],
+        editor_notes=[]
+    )
+    mock_generate_video.return_value = mock_result
+    
+    # Mock DB insert (we have two inserts now, brief and legacy recs)
     mock_insert.return_value = {"ok": True, "status": 201, "body": {}}
     
     response = client.post("/api/recommendations/generate", json={"video_id": "fake-video-id"})
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert len(data["recommendations"]) == 1
-    assert data["recommendations"][0]["tag"] == "Corte"
+    assert "briefing" in data
+    assert len(data["briefing"]["cut_recommendations"]) == 1
+    assert data["briefing"]["cut_recommendations"][0]["reason"] == "Corte simples"

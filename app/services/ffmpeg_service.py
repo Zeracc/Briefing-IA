@@ -71,17 +71,21 @@ def extract_frames(video_path: str, out_pattern: str = "frame_%04d.jpg", fps: in
 
 def extract_snapshots(
     video_path: str,
-    interval_seconds: int = 12,
+    interval_seconds: int = 5,
     max_frames: int = 8,
 ) -> list[str]:
     _require_binary("ffmpeg")
     safe_interval = max(1, int(interval_seconds))
-    safe_max_frames = max(1, int(max_frames))
+    # Para mosaicos (3x3), max_frames representará quantas GRADES (grids inteiros) ele vai gerar
+    safe_max_frames = max(1, int(max_frames)) 
     run_id = uuid.uuid4().hex[:10]
     snapshot_dir = os.path.join(SNAPSHOTS_DIR, run_id)
     os.makedirs(snapshot_dir, exist_ok=True)
 
     output_pattern = os.path.join(snapshot_dir, "snapshot_%03d.jpg")
+    
+    # Grid temporal: escala cada print interno para 320 de largura, e cola num grid 3x3
+    # Isso resulta em uma imagem final de 960x... cobrindo 9 tempos seguidos do vídeo.
     _run_command(
         [
             "ffmpeg",
@@ -89,7 +93,7 @@ def extract_snapshots(
             "-i",
             video_path,
             "-vf",
-            f"fps=1/{safe_interval},scale=960:-2",
+            f"fps=1/{safe_interval},scale=320:-1,tile=3x3",
             "-frames:v",
             str(safe_max_frames),
             output_pattern,

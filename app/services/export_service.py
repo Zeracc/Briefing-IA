@@ -1,3 +1,39 @@
+import csv
+import io
+
+def _seconds_to_timecode(seconds_val: float, fps: int = 30) -> str:
+    from math import floor
+    total_frames = int(round(seconds_val * fps))
+    frames = total_frames % fps
+    total_seconds = total_frames // fps
+    sec = total_seconds % 60
+    total_minutes = total_seconds // 60
+    mnt = total_minutes % 60
+    hr = total_minutes // 60
+    return f"{hr:02d}:{mnt:02d}:{sec:02d}:{frames:02d}"
+
+def generate_premiere_csv(recommendations: list[dict]) -> str:
+    """
+    Gera um arquivo CSV de marcadores compativel com o Adobe Premiere.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(["Marker Name", "Description", "In", "Out", "Duration", "Marker Type"])
+    
+    for rec in recommendations:
+        time = rec.get("timestamp_seconds", 0)
+        try:
+            time_val = float(time)
+        except:
+            time_val = 0.0
+            
+        timecode = _seconds_to_timecode(time_val)
+        tag = rec.get("tag", "Marcador")
+        description = rec.get("description", "")
+        
+        writer.writerow([tag, description, timecode, timecode, "00:00:00:00", "Comment"])
+        
+    return output.getvalue()
 
 def generate_ae_script(recommendations: list[dict]) -> str:
     """
