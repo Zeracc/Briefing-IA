@@ -127,12 +127,15 @@ OPENAI_API_KEY=
 
 ---
 
-## 📸 Preview (em breve)
 
-> Adicione aqui screenshots ou GIF do sistema rodando
+> <img width="1539" height="916" alt="image" src="https://github.com/user-attachments/assets/5eedebbd-f590-40b9-864b-fffe641bd27d" />
+<img width="1528" height="910" alt="image" src="https://github.com/user-attachments/assets/6d5cee29-bc17-4224-b9d3-5f8c25bef53e" />
+
 
 ---
 
 ## 👨‍💻 Autor
 
 Projeto desenvolvido como MVP de produto SaaS com foco em automação de criação de conteúdo.
+
+    
