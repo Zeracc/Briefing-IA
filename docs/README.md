@@ -79,7 +79,7 @@ Upload → Storage → FFmpeg → Transcription → Snapshots → IA → Recomme
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 
 pip install -r requirements.txt
 uvicorn app.main:app --reload
